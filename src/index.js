@@ -8,10 +8,11 @@ import tilesSrc from './assets/tilesets/platformPack_tilesheet.png';
 import playerAtlasJson from './assets/images/kenney_player_atlas.json';
 import levelOneJson from './assets/tilemaps/level1.json';
 
-import { createPlayerStateMachine } from './state';
+import { createPlayerStateMachine, createPlayerService } from './state';
 import { createRunCommand, createGoIdleCommand, createJumpCommand } from './commands';
 
-const playerMachine = createPlayerStateMachine();
+let playerMachine;
+let playerService;
 
 function preload() {
   this.load.image('background', backgroundSrc);
@@ -40,6 +41,18 @@ function create() {
   this.player.setBounce(0.1);
   this.player.setCollideWorldBounds(true);
   this.physics.add.collider(this.player, platforms);
+
+  // init state machines
+  playerMachine = createPlayerStateMachine('sovko');
+  playerService = createPlayerService(playerMachine);
+
+  // enable logging
+  playerService.onTransition(state => {
+    // eslint-disable-next-line no-console
+    console.log(state.value);
+  });
+
+  playerService.start();
 
   // walking animations
   this.anims.create({
@@ -70,6 +83,44 @@ function create() {
 }
 
 function update() {
+  const events = [];
+
+  // check if landed
+  const landedFromAJump = this.player.body.deltaY() > 0 && this.player.body.onFloor();
+  if (landedFromAJump && playerService.state.value === 'JUMPING') {
+    events.push({ type: 'land', player: this.player });
+  }
+
+  // walking state machine
+  if (Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
+    const runEvent = { type: 'walk', player: this.player, direction: 'left' };
+    events.push(runEvent);
+  } else if (Phaser.Input.Keyboard.JustUp(this.cursors.left)) {
+    const stopWalkingEvent = { type: 'stopWalking', player: this.player, direction: 'left' };
+    events.push(stopWalkingEvent);
+  } else if (Phaser.Input.Keyboard.JustDown(this.cursors.right)) {
+    const runEvent = { type: 'walk', player: this.player, direction: 'right' };
+    events.push(runEvent);
+  } else if (Phaser.Input.Keyboard.JustUp(this.cursors.right)) {
+    const stopWalkingEvent = { type: 'stopWalking', player: this.player, direction: 'right' };
+    events.push(stopWalkingEvent);
+  } else if (Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
+    events.push({ type: 'jump', player: this.player });
+  }
+
+  // batch state update
+  if (events.length) {
+    console.log(events);
+    playerService.send(events);
+  }
+
+  /* if (
+    this.player.body.onFloor() &&
+    (playerMachine.getState() === 'JUMPING' || playerMachine.getState() === 'DOUBLE_JUMPING')
+  ) {
+    playerMachine.transition(createGoIdleCommand(this.player));
+  }
+
   // map controls to commands
   if (Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
     const runCommand = createRunCommand(this.player, 'left');
@@ -83,7 +134,7 @@ function update() {
     playerMachine.transition(createGoIdleCommand(this.player));
   } else if (Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
     playerMachine.transition(createJumpCommand(this.player));
-  }
+  } */
 
   // If the player is moving to the right, keep them facing forward
   if (this.player.body.velocity.x > 0) {
@@ -91,13 +142,6 @@ function update() {
   } else if (this.player.body.velocity.x < 0) {
     // otherwise, make them face the other side
     this.player.setFlipX(true);
-  }
-
-  if (
-    this.player.body.onFloor() &&
-    (playerMachine.getState() === 'JUMPING' || playerMachine.getState() === 'DOUBLE_JUMPING')
-  ) {
-    // playerMachine.transition(createGoIdleCommand(this.player));
   }
 }
 

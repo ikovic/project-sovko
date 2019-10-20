@@ -1,74 +1,89 @@
-export const createPlayerStateMachine = () => {
-  let state = 'INITIAL';
+import { Machine, interpret } from 'xstate';
 
-  const transition = command => {
-    const _state = state;
-
-    switch (state) {
-      case 'INITIAL':
-        switch (command.name) {
-          case 'JUMP':
-            state = 'JUMPING';
-            break;
-          case 'RUN':
-            state = 'RUNNING';
-            break;
-
-          default:
-            break;
-        }
-        break;
-
-      case 'RUNNING':
-        switch (command.name) {
-          case 'JUMP':
-            state = 'JUMPING';
-            break;
-          case 'GO_IDLE':
-            state = 'INITIAL';
-            break;
-          default:
-            break;
-        }
-        break;
-
-      case 'JUMPING':
-        switch (command.name) {
-          case 'JUMP':
-            state = 'DOUBLE_JUMPING';
-            break;
-          case 'GO_IDLE':
-            state = 'INITIAL';
-            break;
-          default:
-            break;
-        }
-        break;
-
-      case 'DOUBLE_JUMPING':
-        switch (command.name) {
-          case 'GO_IDLE':
-            state = 'INITIAL';
-            break;
-          default:
-            break;
-        }
-        break;
-
-      default:
-        break;
+const actions = {
+  setIdleAnimation: (context, { player, type }) => {
+    if (player) {
+      player.setVelocityX(0);
+      player.setVelocityY(0);
+      player.play('idle', true);
     }
-
-    console.log(state);
-
-    // execute only if state changed
-    if (state !== _state && typeof command.execute === 'function') {
-      command.execute();
+  },
+  moveHorizontally: (context, event) => {
+    const { player, direction } = event;
+    if (direction === 'left') {
+      player.setVelocityX(-200);
+    } else {
+      player.setVelocityX(200);
     }
-  };
-
-  return {
-    getState: () => state,
-    transition,
-  };
+  },
+  setWalkingAnimation: (context, { player }) => {
+    player.play('walk', true);
+  },
+  setJumpingAnimation: (context, { player, type }) => {
+    player.setVelocityY(-350);
+    player.play('jump', true);
+  },
 };
+
+const jumpingStates = {
+  initial: 'AIRBORNE',
+  states: {
+    AIRBORNE: {
+      on: {
+        startWalking: {
+          target: 'AIRBORNE_WALKING',
+          actions: ['moveHorizontally'],
+        },
+        jump: 'DOUBLE_JUMPING',
+      },
+    },
+    AIRBORNE_WALKING: {
+      on: {
+        stopWalking: 'AIRBORNE',
+      },
+    },
+    DOUBLE_JUMPING: {},
+  },
+};
+
+export const createPlayerStateMachine = playerName => {
+  const playerMachine = Machine(
+    {
+      id: playerName,
+      context: {
+        playerName,
+      },
+      strict: true,
+      initial: 'IDLE',
+      states: {
+        IDLE: {
+          entry: ['setIdleAnimation'],
+          on: {
+            walk: {
+              target: 'WALKING',
+              actions: ['moveHorizontally', 'setWalkingAnimation'],
+            },
+            jump: 'JUMPING',
+          },
+        },
+        WALKING: {
+          on: {
+            stopWalking: 'IDLE',
+          },
+        },
+        JUMPING: {
+          entry: ['setJumpingAnimation'],
+          on: {
+            land: 'IDLE',
+          },
+          /* ...jumpingStates, */
+        },
+      },
+    },
+    { actions }
+  );
+
+  return playerMachine;
+};
+
+export const createPlayerService = playerMachine => interpret(playerMachine);
