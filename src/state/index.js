@@ -29,14 +29,12 @@ const jumpingStates = {
   states: {
     AIRBORNE: {
       on: {
-        walk: {
-          target: 'AIRBORNE_WALKING',
-          actions: ['moveHorizontally'],
-        },
+        walk: 'AIRBORNE_WALKING',
         jump: 'DOUBLE_JUMPING',
       },
     },
     AIRBORNE_WALKING: {
+      entry: ['moveHorizontally'],
       on: {
         stopWalking: 'AIRBORNE',
       },
@@ -44,10 +42,7 @@ const jumpingStates = {
     DOUBLE_JUMPING: {
       entry: ['setJumpingAnimation'],
       on: {
-        walk: {
-          target: 'AIRBORNE_WALKING',
-          actions: ['moveHorizontally'],
-        },
+        walk: 'AIRBORNE_WALKING',
       },
     },
   },
@@ -94,4 +89,21 @@ export const createPlayerStateMachine = playerName => {
   return playerMachine;
 };
 
-export const createPlayerService = playerMachine => interpret(playerMachine);
+// TODO open an issue on github, original interpreter executes every action every time
+// Might have something to do with batching
+// export const createPlayerService = playerMachine => interpret(playerMachine);
+
+export const createPlayerService = playerMachine => {
+  let currentState = playerMachine.initialState;
+
+  return {
+    send: events => {
+      events.forEach(event => {
+        currentState = playerMachine.transition(currentState, event);
+        currentState.actions.forEach(action => action.exec(currentState.context, currentState.event));
+      });
+      console.log(currentState.value);
+    },
+    state: () => currentState,
+  };
+};

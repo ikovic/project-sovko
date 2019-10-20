@@ -9,7 +9,6 @@ import playerAtlasJson from './assets/images/kenney_player_atlas.json';
 import levelOneJson from './assets/tilemaps/level1.json';
 
 import { createPlayerStateMachine, createPlayerService } from './state';
-import { createRunCommand, createGoIdleCommand, createJumpCommand } from './commands';
 
 let playerMachine;
 let playerService;
@@ -44,29 +43,7 @@ function create() {
 
   // init state machines
   playerMachine = createPlayerStateMachine('sovko');
-  // playerService = createPlayerService(playerMachine);
-
-  // enable logging
-  /* playerService.onTransition(state => {
-    // eslint-disable-next-line no-console
-    console.log(state.value, state.actions);
-  }); */
-
-  // TODO open an issue on github, original interpreter executes every action every time
-  // Might have something to do with batching
-  let currentState = playerMachine.initialState;
-  playerService = {
-    send: events => {
-      events.forEach(event => {
-        currentState = playerMachine.transition(currentState, event);
-        currentState.actions.forEach(action => action.exec(currentState.context, currentState.event));
-      });
-      console.log(currentState.value);
-    },
-    state: () => currentState,
-  };
-
-  // playerService.start();
+  playerService = createPlayerService(playerMachine);
 
   // walking animations
   this.anims.create({
