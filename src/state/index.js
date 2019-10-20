@@ -1,10 +1,9 @@
 import { Machine, interpret } from 'xstate';
 
 const actions = {
-  setIdleAnimation: (context, { player, type }) => {
+  setIdleAnimation: (context, { player }) => {
     if (player) {
       player.setVelocityX(0);
-      player.setVelocityY(0);
       player.play('idle', true);
     }
   },
@@ -19,7 +18,7 @@ const actions = {
   setWalkingAnimation: (context, { player }) => {
     player.play('walk', true);
   },
-  setJumpingAnimation: (context, { player, type }) => {
+  setJumpingAnimation: (context, { player }) => {
     player.setVelocityY(-350);
     player.play('jump', true);
   },
@@ -30,7 +29,7 @@ const jumpingStates = {
   states: {
     AIRBORNE: {
       on: {
-        startWalking: {
+        walk: {
           target: 'AIRBORNE_WALKING',
           actions: ['moveHorizontally'],
         },
@@ -42,7 +41,15 @@ const jumpingStates = {
         stopWalking: 'AIRBORNE',
       },
     },
-    DOUBLE_JUMPING: {},
+    DOUBLE_JUMPING: {
+      entry: ['setJumpingAnimation'],
+      on: {
+        walk: {
+          target: 'AIRBORNE_WALKING',
+          actions: ['moveHorizontally'],
+        },
+      },
+    },
   },
 };
 
@@ -69,6 +76,7 @@ export const createPlayerStateMachine = playerName => {
         WALKING: {
           on: {
             stopWalking: 'IDLE',
+            jump: 'JUMPING',
           },
         },
         JUMPING: {
@@ -76,7 +84,7 @@ export const createPlayerStateMachine = playerName => {
           on: {
             land: 'IDLE',
           },
-          /* ...jumpingStates, */
+          ...jumpingStates,
         },
       },
     },

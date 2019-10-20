@@ -44,15 +44,29 @@ function create() {
 
   // init state machines
   playerMachine = createPlayerStateMachine('sovko');
-  playerService = createPlayerService(playerMachine);
+  // playerService = createPlayerService(playerMachine);
 
   // enable logging
-  playerService.onTransition(state => {
+  /* playerService.onTransition(state => {
     // eslint-disable-next-line no-console
-    console.log(state.value);
-  });
+    console.log(state.value, state.actions);
+  }); */
 
-  playerService.start();
+  // TODO open an issue on github, original interpreter executes every action every time
+  // Might have something to do with batching
+  let currentState = playerMachine.initialState;
+  playerService = {
+    send: events => {
+      events.forEach(event => {
+        currentState = playerMachine.transition(currentState, event);
+        currentState.actions.forEach(action => action.exec(currentState.context, currentState.event));
+      });
+      console.log(currentState.value);
+    },
+    state: () => currentState,
+  };
+
+  // playerService.start();
 
   // walking animations
   this.anims.create({
@@ -87,9 +101,11 @@ function update() {
 
   // check if landed
   const landedFromAJump = this.player.body.deltaY() > 0 && this.player.body.onFloor();
-  if (landedFromAJump && playerService.state.value === 'JUMPING') {
+  if (landedFromAJump && playerService.state().value.JUMPING) {
     events.push({ type: 'land', player: this.player });
   }
+
+  // TODO resume moving after landing - IDLE makes you stop even if you hold the control
 
   // walking state machine
   if (Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
@@ -110,31 +126,8 @@ function update() {
 
   // batch state update
   if (events.length) {
-    console.log(events);
     playerService.send(events);
   }
-
-  /* if (
-    this.player.body.onFloor() &&
-    (playerMachine.getState() === 'JUMPING' || playerMachine.getState() === 'DOUBLE_JUMPING')
-  ) {
-    playerMachine.transition(createGoIdleCommand(this.player));
-  }
-
-  // map controls to commands
-  if (Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
-    const runCommand = createRunCommand(this.player, 'left');
-    playerMachine.transition(runCommand);
-  } else if (Phaser.Input.Keyboard.JustUp(this.cursors.left)) {
-    playerMachine.transition(createGoIdleCommand(this.player));
-  } else if (Phaser.Input.Keyboard.JustDown(this.cursors.right)) {
-    const runCommand = createRunCommand(this.player, 'right');
-    playerMachine.transition(runCommand);
-  } else if (Phaser.Input.Keyboard.JustUp(this.cursors.right)) {
-    playerMachine.transition(createGoIdleCommand(this.player));
-  } else if (Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
-    playerMachine.transition(createJumpCommand(this.player));
-  } */
 
   // If the player is moving to the right, keep them facing forward
   if (this.player.body.velocity.x > 0) {
