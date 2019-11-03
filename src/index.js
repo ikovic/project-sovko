@@ -82,8 +82,6 @@ function update() {
     events.push({ type: 'land', player: this.player });
   }
 
-  // TODO resume moving after landing - IDLE makes you stop even if you hold the control
-
   // walking state machine
   if (Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
     const runEvent = { type: 'walk', player: this.player, direction: 'left' };

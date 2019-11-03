@@ -1,4 +1,4 @@
-import { Machine, interpret } from 'xstate';
+import { Machine } from 'xstate';
 
 const actions = {
   setIdleAnimation: (context, { player }) => {
@@ -11,11 +11,12 @@ const actions = {
     const { player, direction } = event;
     if (direction === 'left') {
       player.setVelocityX(-200);
-    } else {
+    } else if (direction === 'right') {
       player.setVelocityX(200);
     }
   },
   setWalkingAnimation: (context, { player }) => {
+    console.log('walkin animation');
     player.play('walk', true);
   },
   setJumpingAnimation: (context, { player }) => {
@@ -37,6 +38,7 @@ const jumpingStates = {
       entry: ['moveHorizontally'],
       on: {
         stopWalking: 'AIRBORNE',
+        land: '#walkingId',
       },
     },
     DOUBLE_JUMPING: {
@@ -63,12 +65,14 @@ export const createPlayerStateMachine = playerName => {
           on: {
             walk: {
               target: 'WALKING',
-              actions: ['moveHorizontally', 'setWalkingAnimation'],
+              actions: ['moveHorizontally'],
             },
             jump: 'JUMPING',
           },
         },
         WALKING: {
+          entry: ['setWalkingAnimation'],
+          id: 'walkingId',
           on: {
             stopWalking: 'IDLE',
             jump: 'JUMPING',
