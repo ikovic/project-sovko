@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import io from 'socket.io-client';
 
 import backgroundSrc from './assets/images/background.png';
 import spikeSrc from './assets/images/spike.png';
@@ -21,6 +22,15 @@ function preload() {
   this.load.image('tiles', tilesSrc);
   // Load the export Tiled JSON
   this.load.tilemapTiledJSON('map', levelOneJson);
+
+  this.socket = io('http://localhost:3000', {
+    path: '/api/realtime',
+  });
+
+  this.socket.on('chat message', commands => {
+    console.log('have a command list', commands);
+    this.pendingCommands = [...commands];
+  });
 }
 
 function create() {
@@ -103,6 +113,7 @@ function update() {
 
   // batch state update
   if (events.length) {
+    this.socket.emit('chat message', events);
     playerService.send(events);
   }
 
