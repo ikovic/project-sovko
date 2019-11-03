@@ -82,6 +82,8 @@ function update() {
     events.push({ type: 'land', player: this.player });
   }
 
+  // TODO differentiate between holding buttons and pressing buttons (walk vs jump)
+
   // walking state machine
   if (Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
     const runEvent = { type: 'walk', player: this.player, direction: 'left' };
