@@ -8,55 +8,10 @@ import tilesSrc from './assets/tilesets/platformPack_tilesheet.png';
 import playerAtlasJson from './assets/images/kenney_player_atlas.json';
 import levelOneJson from './assets/tilemaps/level1.json';
 
-const createPlayerStateMachine = () => {
-  let state = 'INITIAL';
+import { createPlayerStateMachine, createPlayerService } from './state';
 
-  const transition = newState => {
-    switch (state) {
-      case 'INITIAL':
-        switch (newState) {
-          case 'JUMPING':
-            state = 'JUMPING';
-            break;
-          default:
-            break;
-        }
-        break;
-      case 'JUMPING':
-        switch (newState) {
-          case 'JUMPING':
-            state = 'DOUBLE_JUMPING';
-            break;
-          case 'INITIAL':
-            state = 'INITIAL';
-            break;
-          default:
-            break;
-        }
-        break;
-
-      case 'DOUBLE_JUMPING':
-        switch (newState) {
-          case 'INITIAL':
-            state = 'INITIAL';
-            break;
-          default:
-            break;
-        }
-        break;
-
-      default:
-        break;
-    }
-  };
-
-  return {
-    getState: () => state,
-    transition,
-  };
-};
-
-const playerMachine = createPlayerStateMachine();
+let playerMachine;
+let playerService;
 
 function preload() {
   this.load.image('background', backgroundSrc);
@@ -85,6 +40,10 @@ function create() {
   this.player.setBounce(0.1);
   this.player.setCollideWorldBounds(true);
   this.physics.add.collider(this.player, platforms);
+
+  // init state machines
+  playerMachine = createPlayerStateMachine('sovko');
+  playerService = createPlayerService(playerMachine);
 
   // walking animations
   this.anims.create({
@@ -115,42 +74,36 @@ function create() {
 }
 
 function update() {
-  const onTheFloor = this.player.body.onFloor();
+  const events = [];
 
-  // Control the player with left or right keys
-  if (this.cursors.left.isDown) {
-    this.player.setVelocityX(-200);
-    if (onTheFloor) {
-      this.player.play('walk', true);
-    }
-  } else if (this.cursors.right.isDown) {
-    this.player.setVelocityX(200);
-    if (onTheFloor) {
-      this.player.play('walk', true);
-    }
-  } else {
-    // If no keys are pressed, the player keeps still
-    this.player.setVelocityX(0);
-    // Only show the idle animation if the player is footed
-    // If this is not included, the player would look idle while jumping
-    if (onTheFloor) {
-      this.player.play('idle', true);
-    }
+  // check if landed
+  const landedFromAJump = this.player.body.deltaY() > 0 && this.player.body.onFloor();
+  if (landedFromAJump && playerService.state().value.JUMPING) {
+    events.push({ type: 'land', player: this.player });
   }
 
-  if (onTheFloor && playerMachine.getState() !== 'INITIAL') {
-    playerMachine.transition('INITIAL');
+  // TODO differentiate between holding buttons and pressing buttons (walk vs jump)
+
+  // walking state machine
+  if (Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
+    const runEvent = { type: 'walk', player: this.player, direction: 'left' };
+    events.push(runEvent);
+  } else if (Phaser.Input.Keyboard.JustUp(this.cursors.left)) {
+    const stopWalkingEvent = { type: 'stopWalking', player: this.player, direction: 'left' };
+    events.push(stopWalkingEvent);
+  } else if (Phaser.Input.Keyboard.JustDown(this.cursors.right)) {
+    const runEvent = { type: 'walk', player: this.player, direction: 'right' };
+    events.push(runEvent);
+  } else if (Phaser.Input.Keyboard.JustUp(this.cursors.right)) {
+    const stopWalkingEvent = { type: 'stopWalking', player: this.player, direction: 'right' };
+    events.push(stopWalkingEvent);
+  } else if (Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
+    events.push({ type: 'jump', player: this.player });
   }
 
-  // Player can jump while walking any direction by pressing the space bar
-  // or the 'UP' arrow
-  if (
-    Phaser.Input.Keyboard.JustDown(this.cursors.up) &&
-    (playerMachine.getState() === 'INITIAL' || playerMachine.getState() === 'JUMPING')
-  ) {
-    playerMachine.transition('JUMPING');
-    this.player.setVelocityY(-350);
-    this.player.play('jump', true);
+  // batch state update
+  if (events.length) {
+    playerService.send(events);
   }
 
   // If the player is moving to the right, keep them facing forward
